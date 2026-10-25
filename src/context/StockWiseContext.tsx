@@ -38,6 +38,7 @@ import {
   ExcessInventoryItem,
   runDistributionOptimization,
 } from '../lib/inventoryEngine';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export interface StockoutAlertItem {
   id: string;
@@ -250,6 +251,102 @@ export const StockWiseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_settings`, JSON.stringify(companySettings));
   }, [companySettings]);
+
+  // Live Supabase Database Sync (Full-Stack PostgreSQL sync)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+    const client = supabase;
+
+    const fetchSupabaseData = async () => {
+      try {
+        const { data: dbProducts, error: prodErr } = await client.from('products').select('*');
+        if (!prodErr && dbProducts && dbProducts.length > 0) {
+          const mappedProducts: Product[] = dbProducts.map((p: any) => ({
+            id: p.id,
+            sku: p.sku,
+            name: p.name,
+            category: p.category,
+            unitCost: Number(p.unit_cost),
+            sellingPrice: Number(p.selling_price),
+            weightKg: Number(p.weight_kg || 0.5),
+            minSafetyStock: Number(p.min_safety_stock || 20),
+            maxStock: Number(p.max_stock || 200),
+            leadTimeDays: Number(p.lead_time_days || 2),
+            isPerishable: Boolean(p.is_perishable),
+            expiryDate: p.expiry_date,
+            description: p.description || '',
+            unitOfMeasure: p.unit_of_measure || 'Units',
+          }));
+          setProducts(mappedProducts);
+        }
+
+        const { data: dbWarehouses, error: whErr } = await client.from('warehouses').select('*');
+        if (!whErr && dbWarehouses && dbWarehouses.length > 0) {
+          const mappedWarehouses: Warehouse[] = dbWarehouses.map((w: any) => ({
+            id: w.id,
+            code: w.code,
+            name: w.name,
+            type: 'warehouse',
+            address: w.address,
+            city: w.city,
+            state: w.state,
+            lat: Number(w.lat),
+            lng: Number(w.lng),
+            totalCapacityUnits: Number(w.total_capacity_units),
+            usedCapacityUnits: Number(w.used_capacity_units),
+            operatingCostPerDay: Number(w.operating_cost_per_day),
+            managerName: w.manager_name,
+            contactPhone: w.contact_phone,
+            status: w.status,
+          }));
+          setWarehouses(mappedWarehouses);
+        }
+
+        const { data: dbStores, error: stErr } = await client.from('stores').select('*');
+        if (!stErr && dbStores && dbStores.length > 0) {
+          const mappedStores: Store[] = dbStores.map((s: any) => ({
+            id: s.id,
+            code: s.code,
+            name: s.name,
+            type: 'store',
+            address: s.address,
+            city: s.city,
+            state: s.state,
+            lat: Number(s.lat),
+            lng: Number(s.lng),
+            priorityTier: s.priority_tier,
+            dailyFootfall: Number(s.daily_footfall),
+            managerName: s.manager_name,
+            contactPhone: s.contact_phone,
+            status: s.status,
+          }));
+          setStores(mappedStores);
+        }
+
+        const { data: dbInventory, error: invErr } = await client.from('inventory_items').select('*');
+        if (!invErr && dbInventory && dbInventory.length > 0) {
+          const mappedInventory: InventoryItem[] = dbInventory.map((i: any) => ({
+            id: i.id,
+            productId: i.product_id,
+            locationId: i.location_id,
+            locationType: i.location_type,
+            quantityOnHand: Number(i.quantity_on_hand),
+            quantityReserved: Number(i.quantity_reserved),
+            reorderPoint: Number(i.reorder_point),
+            safetyStock: Number(i.safety_stock),
+            targetStockLevel: Number(i.target_stock_level),
+            lastRestockedAt: i.last_restocked_at,
+            batchNumber: i.batch_number,
+          }));
+          setInventory(mappedInventory);
+        }
+      } catch (e) {
+        console.warn('Supabase fetch error, using local fallback:', e);
+      }
+    };
+
+    fetchSupabaseData();
+  }, []);
 
   // Compute stockout alerts dynamically
   const stockoutAlerts: StockoutAlertItem[] = useMemo(() => {

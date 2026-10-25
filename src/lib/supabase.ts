@@ -24,39 +24,32 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
   : null;
 
 /**
- * TASK 5 — Development-only Supabase Connection Test
- * Performs a lightweight query on the existing "challenges" table.
+ * VyaparMitra Supabase Connection Test
+ * Checks connection against the live "products" table.
  */
 export async function testSupabaseConnection(): Promise<{ success: boolean; message: string; data?: any }> {
   if (!isSupabaseConfigured || !supabase) {
-    const msg = 'Supabase connection failed: Environment variables VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are missing or empty.';
-    console.info('ℹ️ Supabase Connection Check:', msg);
+    const msg = 'Supabase connection skipped: VITE_SUPABASE_URL and key not configured.';
     return { success: false, message: msg };
   }
 
   try {
-    // Lightweight query on the existing "challenges" table from schema
-    const { data, error } = await supabase.from('challenges').select('id').limit(1);
+    const { data, error } = await supabase.from('products').select('id, name, sku').limit(5);
 
     if (error) {
-      const errorMsg = `Supabase connection failed: ${error.message}`;
-      console.warn('⚠️ Supabase Connection Result:', errorMsg);
-      return { success: false, message: errorMsg };
+      console.warn('⚠️ Supabase Connection Result:', error.message);
+      return { success: false, message: error.message };
     }
 
-    const successMsg = 'Supabase connection successful.';
-    console.log('✅ Supabase Connection Result:', successMsg, `Query returned ${data?.length || 0} records.`);
-    return { success: true, message: successMsg, data };
+    console.log('✅ VyaparMitra Supabase Connection SUCCESSFUL! Found products:', data?.length || 0);
+    return { success: true, message: 'Connected to Supabase PostgreSQL', data };
   } catch (err: any) {
-    const catchMsg = `Supabase connection failed: ${err?.message || String(err)}`;
-    console.error('❌ Supabase Connection Exception:', catchMsg);
-    return { success: false, message: catchMsg };
+    console.error('❌ Supabase Connection Exception:', err?.message || String(err));
+    return { success: false, message: err?.message || String(err) };
   }
 }
 
-// Automatically execute connection test if configured
+// Automatically test connection if configured
 if (isSupabaseConfigured) {
   testSupabaseConnection();
-} else {
-  console.info('ℹ️ YOUR GATI: Running in local prototype mode. (Add VITE_SUPABASE_URL & VITE_SUPABASE_PUBLISHABLE_KEY to .env.local to enable live Supabase DB).');
 }
